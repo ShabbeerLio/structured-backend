@@ -16,5 +16,9 @@ mongoose.connect(process.env.MONGO_URI)
 
 app.use('/api/meals', mealRoutes);
 
+app.get("/", (req, res) => {
+  res.json({ message: "Hello MERN Stack!" });
+});
+
 const PORT = process.env.PORT || 8000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
