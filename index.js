@@ -6,6 +6,8 @@ const { router: pushRoutes } = require("./routes/push");
 const scheduler = require("./corn/scheduler");
 const bodyParser = require("body-parser");
 const cors = require("cors");
+const http = require("http");
+const WebSocket = require("ws");
 
 dotenv.config();
 
@@ -15,8 +17,51 @@ app.use(bodyParser.json());
 app.use("/api/meals", mealRoutes);
 app.use("/api/push", pushRoutes);
 
-mongoose.connect(process.env.MONGO_URI).then(() => {
-  console.log("MongoDB connected");
-  app.listen(8000, () => console.log("Server started on port 8000"));
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
+let broadcaster = null;
+const listeners = new Set();
+
+wss.on("connection", (ws) => {
+  ws.on("message", (message, isBinary) => {
+    if (!isBinary) {
+      let data;
+      try {
+        data = JSON.parse(message.toString());
+      } catch (e) {
+        console.error("Invalid JSON:", e.message);
+        return;
+      }
+
+      if (data.type === "broadcaster") {
+        broadcaster = ws;
+        console.log("Broadcaster connected");
+      } else if (data.type === "listener") {
+        listeners.add(ws);
+        console.log("Listener connected");
+      }
+    } else {
+      // Binary stream from broadcaster (audio)
+      if (ws === broadcaster) {
+        for (const listener of listeners) {
+          if (listener.readyState === WebSocket.OPEN) {
+            listener.send(message, { binary: true });
+          }
+        }
+      }
+    }
+  });
+
+  ws.on("close", () => {
+    if (ws === broadcaster) broadcaster = null;
+    listeners.delete(ws);
+  });
 });
 
+mongoose.connect(process.env.MONGO_URI).then(() => {
+  console.log("MongoDB connected");
+  server.listen(8000, () =>
+    console.log("Server + WebSocket running on port 8000")
+  );
+});
