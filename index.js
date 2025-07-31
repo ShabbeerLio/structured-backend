@@ -26,28 +26,20 @@ const listeners = new Set();
 wss.on("connection", (ws) => {
   ws.on("message", (message, isBinary) => {
     if (!isBinary) {
-      let data;
-      try {
-        data = JSON.parse(message.toString());
-      } catch (e) {
-        console.error("Invalid JSON:", e.message);
-        return;
-      }
-
+      const data = JSON.parse(message);
       if (data.type === "broadcaster") {
         broadcaster = ws;
-        console.log("Broadcaster connected");
       } else if (data.type === "listener") {
         listeners.add(ws);
-        console.log("Listener connected");
       }
-    } else {
-      // Binary stream from broadcaster (audio)
-      if (ws === broadcaster) {
-        for (const listener of listeners) {
-          if (listener.readyState === WebSocket.OPEN) {
-            listener.send(message, { binary: true });
-          }
+      return;
+    }
+
+    // if binary data from broadcaster
+    if (ws === broadcaster) {
+      for (const listener of listeners) {
+        if (listener.readyState === WebSocket.OPEN) {
+          listener.send(message, { binary: true });
         }
       }
     }
