@@ -20,36 +20,22 @@ app.use("/api/push", pushRoutes);
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-let broadcaster = null;
-const listeners = new Set();
+let clients = new Set();
 
 wss.on("connection", (ws) => {
-  ws.on("message", (message, isBinary) => {
-    if (!isBinary) {
-      const data = JSON.parse(message);
-      if (data.type === "broadcaster") {
-        broadcaster = ws;
-        console.log("broadcaster connected")
-      } else if (data.type === "listener") {
-        listeners.add(ws);
-        console.log("listener connected")
-      }
-      return;
-    }
+  clients.add(ws);
 
-    // if binary data from broadcaster
-    if (ws === broadcaster) {
-      for (const listener of listeners) {
-        if (listener.readyState === WebSocket.OPEN) {
-          listener.send(message, { binary: true });
-        }
+  ws.on("message", (data) => {
+    // Broadcast audio to others
+    for (let client of clients) {
+      if (client !== ws && client.readyState === WebSocket.OPEN) {
+        client.send(data);
       }
     }
   });
 
   ws.on("close", () => {
-    if (ws === broadcaster) broadcaster = null;
-    listeners.delete(ws);
+    clients.delete(ws);
   });
 });
 
