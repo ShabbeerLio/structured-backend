@@ -29,8 +29,10 @@ wss.on("connection", (ws) => {
       const data = JSON.parse(message);
       if (data.type === "broadcaster") {
         broadcaster = ws;
+        console.log("broadcaster connected")
       } else if (data.type === "listener") {
         listeners.add(ws);
+        console.log("listener connected")
       }
       return;
     }
